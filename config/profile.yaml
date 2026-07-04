@@ -1,0 +1,13 @@
+candidate:
+  full_name: Malik Oseni
+  location: Birmingham, United Kingdom
+  resume_path: /Users/malikoseni/Downloads/files (4)/UK/mwpe/birmingham/Malik Oseni.pdf
+  notice_period_weeks: 4
+  alternate_notice_period_weeks: 2
+  relocation_assistance_required: true
+  preferred_remote_regions:
+    - global
+    - emea
+accounts:
+  login_email_env_var: JOB_HUNTER_LOGIN_EMAIL
+  login_password_env_var: JOB_HUNTER_LOGIN_PASSWORD

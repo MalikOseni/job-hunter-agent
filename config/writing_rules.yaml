@@ -1,0 +1,16 @@
+style:
+  ban_em_dash: true
+  ban_ai_tells: true
+  banned_punctuation:
+    - "—"
+  banned_phrases:
+    - as an ai
+    - ai-generated
+    - in today's fast-paced world
+    - i cannot
+    - i do not have
+    - i am unable to
+  banned_openers:
+    - dear hiring manager
+    - to whom it may concern
+    - i hope this message finds you well

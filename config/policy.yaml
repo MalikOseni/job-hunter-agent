@@ -1,0 +1,69 @@
+pipeline:
+  min_score_default: 2
+  max_age_days_default: 21
+relocation:
+  require_mobility_match: true
+  accepted_mobility_tags:
+    - visa/relocation
+    - work-anywhere
+    - emea-remote
+    - target-country
+    - remote
+  require_target_country_for_non_remote: false
+  allow_remote: true
+  allow_work_anywhere: true
+  allow_emea_remote: true
+  target_country_keywords:
+    - netherlands
+    - united kingdom
+    - uk
+    - ireland
+    - germany
+    - canada
+    - new zealand
+    - nz
+    - auckland
+    - wellington
+    - australia
+    - sydney
+    - melbourne
+    - brisbane
+    - perth
+    - dubai
+    - united arab emirates
+    - uae
+    - qatar
+    - saudi
+    - sweden
+    - denmark
+    - norway
+    - switzerland
+    - belgium
+    - luxembourg
+    - amsterdam
+    - london
+    - berlin
+    - toronto
+    - vancouver
+    - doha
+    - abu dhabi
+    - emea
+notice_period:
+  default_weeks: 4
+  fast_track_weeks: 2
+  immediate_weeks: 0
+  fast_track_keywords:
+    - two weeks
+    - 2 weeks
+    - quick start
+  immediate_keywords:
+    - asap
+    - immediate start
+    - urgent
+salary:
+  default_offer_strategy: top_of_range_if_provided
+  fallback_strategy: market_rate_estimate
+  target_currency: GBP
+  market_rate_uplift_percent: 10
+writing:
+  rules_profile: strict
