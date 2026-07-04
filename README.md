@@ -49,6 +49,7 @@ Runtime directory overrides (used by `scripts/run_daily.sh`):
 - `JOB_HUNTER_REVIEW_DIR` (default: `./review`)
 - `JOB_HUNTER_DB_PATH` (default: `./data/job_hunter.db`)
 - `JOB_HUNTER_CONFIG_DIR` (default: `./config`)
+- `JOB_HUNTER_NOTIFY_DESKTOP` (default: `1`; set `0` to disable macOS desktop notifications)
 
 CLI flags (module entrypoint):
 - `--min-score`
@@ -85,6 +86,11 @@ Common operations:
   - `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.malikoseni.jobhunter.daily.plist`
   - `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.malikoseni.jobhunter.daily.plist`
   - `launchctl enable gui/$(id -u)/com.malikoseni.jobhunter.daily`
+
+Desktop notifications:
+- Each run sends a macOS notification on completion:
+  - success: artifacts updated in `review/`
+  - failure: points to `logs/job_hunter_runner.err.log`
 
 ## Generated outputs
 ### `outputs/`
