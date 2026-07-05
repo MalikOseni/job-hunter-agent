@@ -9,7 +9,7 @@ Relocation-first job sourcing and application-tracking pipeline with daily autom
 - Generates daily review artifacts:
   - live jobs CSV/HTML
   - application status CSV/HTML/JSON dashboard
-- Supports daily scheduled execution via macOS LaunchAgent.
+- Supports daily scheduled execution via cron.
 
 ## Repository layout
 - `src/job_hunter_agent/` — core pipeline modules.
@@ -50,6 +50,8 @@ Runtime directory overrides (used by `scripts/run_daily.sh`):
 - `JOB_HUNTER_DB_PATH` (default: `./data/job_hunter.db`)
 - `JOB_HUNTER_CONFIG_DIR` (default: `./config`)
 - `JOB_HUNTER_NOTIFY_DESKTOP` (default: `1`; set `0` to disable macOS desktop notifications)
+- `JOB_HUNTER_SEND_DAILY_EMAIL` (default: `1`; set `0` to disable daily email sending)
+- `JOB_HUNTER_REPORT_EMAIL` (default: `malik@malikoseni.com`; recipient for daily summary emails)
 
 CLI flags (module entrypoint):
 - `--min-score`
@@ -73,24 +75,21 @@ CLI flags (module entrypoint):
 ### Direct module execution
 - `PYTHONPATH="$PWD/src" /usr/bin/python3 -m job_hunter_agent.main --out-dir "$PWD/outputs" --review-dir "$PWD/review" --db-path "$PWD/data/job_hunter.db" --config-dir "$PWD/config"`
 
-## Daily automation (macOS LaunchAgent)
-Expected label:
-- `com.malikoseni.jobhunter.daily`
-
-Common operations:
-- Check status:
-  - `launchctl print gui/$(id -u)/com.malikoseni.jobhunter.daily`
-- Trigger immediate run:
-  - `launchctl kickstart -k gui/$(id -u)/com.malikoseni.jobhunter.daily`
-- Reload agent (if plist updated):
-  - `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.malikoseni.jobhunter.daily.plist`
-  - `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.malikoseni.jobhunter.daily.plist`
-  - `launchctl enable gui/$(id -u)/com.malikoseni.jobhunter.daily`
+## Daily automation (cron)
+Example daily cron entry (09:00 local time):
+- `0 9 * * * /bin/zsh /Users/malikoseni/job-hunter-agent/scripts/run_daily.sh >> /Users/malikoseni/job-hunter-agent/logs/job_hunter_cron.out.log 2>> /Users/malikoseni/job-hunter-agent/logs/job_hunter_cron.err.log`
 
 Desktop notifications:
 - Each run sends a macOS notification on completion:
-  - success: artifacts updated in `review/`
+  - success: artifacts updated in `review/` (includes email status)
   - failure: points to `logs/job_hunter_runner.err.log`
+
+Daily email reports:
+- On successful runs, `scripts/run_daily.sh` generates `review/latest_job_findings_summary.txt`.
+- The script emails that summary and attaches:
+  - `review/latest_live_jobs.csv`
+  - `review/latest_application_status.csv`
+- Email errors are logged but do not fail the pipeline run.
 
 ## Generated outputs
 ### `outputs/`
@@ -106,6 +105,7 @@ Desktop notifications:
 - `latest_application_status.csv`
 - `latest_application_status.html`
 - `latest_application_status.json`
+- `latest_job_findings_summary.txt`
 - `application_status_YYYY-MM-DD.csv`
 - `application_status_YYYY-MM-DD.html`
 - `application_status_YYYY-MM-DD.json`
@@ -113,10 +113,13 @@ Desktop notifications:
 ### `logs/`
 - `job_hunter_runner.out.log`
 - `job_hunter_runner.err.log`
+- `job_hunter_cron.out.log`
+- `job_hunter_cron.err.log`
 
 ## Monitoring and verification
 - Follow logs live:
   - `tail -n 100 -f logs/job_hunter_runner.out.log logs/job_hunter_runner.err.log`
+  - `tail -n 100 -f logs/job_hunter_cron.out.log logs/job_hunter_cron.err.log`
 - Scan errors:
   - `grep -niE "error|traceback|failed|exception|permission" logs/job_hunter_runner.err.log`
 - Confirm successful run markers:
