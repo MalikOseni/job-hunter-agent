@@ -14,16 +14,35 @@ UA = {"User-Agent": "Mozilla/5.0 (job-hunter/1.0)"}
 # Companies with known ATS boards worth polling directly. Extend freely:
 # ("greenhouse", "boardtoken") | ("lever", "site") | ("ashby", "org")
 ATS_BOARDS = [
-    ("greenhouse", "adyen"), ("greenhouse", "bookingcom"),
-    ("greenhouse", "mollie"), ("greenhouse", "backbase"),
-    ("greenhouse", "miro"), ("greenhouse", "elastic"),
-    ("greenhouse", "gitlab"), ("greenhouse", "cloudflare"),
-    ("greenhouse", "datadog"), ("greenhouse", "mongodb"),
-    ("greenhouse", "okta"), ("greenhouse", "wise"),
-    ("greenhouse", "checkoutcom"), ("greenhouse", "personio"),
-    ("greenhouse", "picnic"), ("greenhouse", "bunq"),
-    ("lever", "netlight"), ("lever", "palantir"),
-    ("ashby", "ramp"), ("ashby", "deel"), ("ashby", "remotecom"),
+    # Core targets aligned to identity/security/modern workplace depth.
+    ("greenhouse", "okta"),
+    ("greenhouse", "cloudflare"),
+    ("greenhouse", "datadog"),
+    ("greenhouse", "mongodb"),
+    ("greenhouse", "gitlab"),
+    ("greenhouse", "elastic"),
+    ("greenhouse", "adyen"),
+    # Additional tech employers to reduce concentration on a single company.
+    ("greenhouse", "stripe"),
+    ("greenhouse", "reddit"),
+    ("greenhouse", "twilio"),
+    ("greenhouse", "intercom"),
+    ("greenhouse", "coinbase"),
+    ("greenhouse", "dropbox"),
+    ("greenhouse", "figma"),
+    ("greenhouse", "duolingo"),
+    # Non-profit / mission-driven organizations.
+    ("greenhouse", "mozilla"),
+    ("greenhouse", "khanacademy"),
+    ("greenhouse", "codeforamerica"),
+    ("greenhouse", "aclu"),
+    ("greenhouse", "humanrightswatch"),
+    ("greenhouse", "wri"),
+    # Additional ATS ecosystems.
+    ("lever", "palantir"),
+    ("lever", "netlight"),
+    ("ashby", "ramp"),
+    ("ashby", "deel"),
 ]
 
 
@@ -72,7 +91,7 @@ def sweep_arbeitnow(jobs: list[JobRecord]) -> None:
 
 def sweep_remotive(jobs: list[JobRecord]) -> None:
     print("Remotive (remote roles)...")
-    for category in ("software-dev", "devops-sysadmin"):
+    for category in ("software-dev", "devops-sysadmin", "all-others"):
         data = fetch_json(
             f"https://remotive.com/api/remote-jobs?category={category}&limit=200"
         )
