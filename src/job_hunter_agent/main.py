@@ -5,12 +5,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from .auto_submit import AutoSubmitter, build_auto_submit_config, is_goal_aligned_tags
 
 from .config import ConfigError, load_runtime_settings
 from .dashboard import update_live_jobs_html_with_status_section, write_status_dashboard
 from .db import initialize_database, open_database, resolve_db_path
 from .eligibility import evaluate_jobs, summarize_reason_counts
-from .export import fetch_status_rows, write_status_exports
+from .export import ApplicationKpis, fetch_status_rows, write_status_exports
 from .policy_engine import PolicyEngine, RunPolicySnapshot
 from .repository import JobRepository
 from .reporting import write_reports
@@ -82,6 +83,7 @@ def run(
         cli_min_score=min_score,
         cli_max_age_days=max_age_days,
     )
+    auto_submitter = AutoSubmitter(build_auto_submit_config(settings.profile, credentials))
 
     _print_runtime_policy_summary(policy_snapshot, settings.profile.full_name)
     _print_credential_status(credentials)
@@ -138,22 +140,97 @@ def run(
             relocation_required=settings.profile.relocation_assistance_required,
             eligibility_decisions=eligibility_evaluation.by_key,
             salary_decisions=salary_decisions,
+            auto_submitter=auto_submitter,
         )
         status_rows = fetch_status_rows(conn)
 
     stamp = run_started_at.strftime("%Y-%m-%d")
-    export_artifacts = write_status_exports(status_rows, resolved_review_dir, stamp)
-    dashboard_artifacts = write_status_dashboard(status_rows, resolved_review_dir, stamp)
+    auto_submit_success_rate = 0.0
+    if ingestion_summary.auto_submit_attempted > 0:
+        auto_submit_success_rate = round(
+            (ingestion_summary.auto_submit_applied / ingestion_summary.auto_submit_attempted) * 100,
+            2,
+        )
+    target_shortlist_roles = sum(1 for job in top if is_goal_aligned_tags(job.get("tags", "")))
+    target_shortlist_ratio = round(
+        ((target_shortlist_roles / len(top)) * 100) if top else 0.0,
+        2,
+    )
+    attempt_coverage_ratio = round(
+        (
+            (ingestion_summary.auto_submit_attempted / target_shortlist_roles) * 100
+            if target_shortlist_roles > 0
+            else 0.0
+        ),
+        2,
+    )
+    if attempt_coverage_ratio > 100:
+        attempt_coverage_ratio = 100.0
+    goal_progress_rating = round(
+        (auto_submit_success_rate * 0.55)
+        + (attempt_coverage_ratio * 0.25)
+        + (target_shortlist_ratio * 0.20),
+        2,
+    )
+    reassess_required = (
+        goal_progress_rating < 60
+        or ingestion_summary.auto_submit_applied == 0
+    )
+    application_kpis = ApplicationKpis(
+        auto_submit_enabled=ingestion_summary.auto_submit_enabled,
+        shortlisted_considered=ingestion_summary.auto_submit_shortlisted_considered,
+        attempted=ingestion_summary.auto_submit_attempted,
+        applied=ingestion_summary.auto_submit_applied,
+        blocked=ingestion_summary.auto_submit_blocked,
+        skipped=ingestion_summary.auto_submit_skipped,
+        success_rate=auto_submit_success_rate,
+        target_shortlist_roles=target_shortlist_roles,
+        target_shortlist_ratio=target_shortlist_ratio,
+        attempt_coverage_ratio=attempt_coverage_ratio,
+        goal_progress_rating=goal_progress_rating,
+        reassess_required=reassess_required,
+    )
+    export_artifacts = write_status_exports(
+        status_rows,
+        resolved_review_dir,
+        stamp,
+        application_kpis=application_kpis,
+    )
+    dashboard_artifacts = write_status_dashboard(
+        status_rows,
+        resolved_review_dir,
+        stamp,
+        application_kpis=application_kpis,
+    )
     panel_updated = update_live_jobs_html_with_status_section(
         resolved_review_dir / "latest_live_jobs.html",
         dashboard_artifacts=dashboard_artifacts,
         export_artifacts=export_artifacts,
+        application_kpis=application_kpis,
     )
     print(
         "Status dashboard updated: "
         f"{dashboard_artifacts.latest_html.name}, {export_artifacts.latest_csv.name}, "
         f"{export_artifacts.latest_json.name}; "
         f"live_jobs_panel={'yes' if panel_updated else 'no'}"
+    )
+    print(
+        "Auto-submit results: "
+        f"enabled={'yes' if ingestion_summary.auto_submit_enabled else 'no'}, "
+        f"shortlisted_considered={ingestion_summary.auto_submit_shortlisted_considered}, "
+        f"attempted={ingestion_summary.auto_submit_attempted}, "
+        f"applied={ingestion_summary.auto_submit_applied}, "
+        f"blocked={ingestion_summary.auto_submit_blocked}, "
+        f"skipped={ingestion_summary.auto_submit_skipped}, "
+        f"success_rate={auto_submit_success_rate:.2f}%"
+    )
+    print(
+        "Goal progress rating: "
+        f"target_shortlist_roles={target_shortlist_roles}, "
+        f"target_shortlist_ratio={target_shortlist_ratio:.2f}%, "
+        f"attempt_coverage={attempt_coverage_ratio:.2f}%, "
+        f"rating={goal_progress_rating:.2f}/100, "
+        f"reassess_required={'yes' if reassess_required else 'no'}"
     )
     print(
         "Queue DB updated: "

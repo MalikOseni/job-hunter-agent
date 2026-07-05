@@ -5,7 +5,13 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .export import STATUS_LABELS, StatusExportArtifacts, StatusRow, summarize_status_counts
+from .export import (
+    ApplicationKpis,
+    STATUS_LABELS,
+    StatusExportArtifacts,
+    StatusRow,
+    summarize_status_counts,
+)
 
 STATUS_HEX = {
     "applied": "#2e7d32",
@@ -35,6 +41,7 @@ def write_status_dashboard(
     rows: list[StatusRow],
     review_dir: Path,
     stamp: str,
+    application_kpis: ApplicationKpis | None = None,
 ) -> DashboardArtifacts:
     review_dir.mkdir(parents=True, exist_ok=True)
     counts = summarize_status_counts(rows)
@@ -51,6 +58,7 @@ def write_status_dashboard(
 body{{font-family:system-ui;margin:24px}}
 .legend{{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px}}
 .chip{{border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600}}
+.kpi{{background:#f2f6ff;border:1px solid #d7e3ff;border-radius:10px;padding:10px 12px;margin:0 0 14px 0}}
 table{{border-collapse:collapse;width:100%}}
 th,td{{border:1px solid #ddd;padding:6px 8px;font-size:14px;text-align:left;vertical-align:top}}
 th{{background:#f5f5f5}}
@@ -65,6 +73,7 @@ a:hover{{text-decoration:underline}}
 </style>
 <h1>Application status dashboard — {stamp}</h1>
 <p>Total tracked opportunities: <strong>{total}</strong></p>
+{_build_kpi_html(application_kpis)}
 {legend_html}
 <table>
 <tr>
@@ -89,11 +98,16 @@ def update_live_jobs_html_with_status_section(
     *,
     dashboard_artifacts: DashboardArtifacts,
     export_artifacts: StatusExportArtifacts,
+    application_kpis: ApplicationKpis | None = None,
 ) -> bool:
     if not live_jobs_html_path.exists():
         return False
     content = live_jobs_html_path.read_text(encoding="utf-8")
-    panel_html = _build_live_jobs_panel(dashboard_artifacts, export_artifacts)
+    panel_html = _build_live_jobs_panel(
+        dashboard_artifacts,
+        export_artifacts,
+        application_kpis,
+    )
     panel_block = f"{STATUS_PANEL_START}\n{panel_html}\n{STATUS_PANEL_END}"
 
     if STATUS_PANEL_START in content and STATUS_PANEL_END in content:
@@ -151,6 +165,7 @@ def _build_legend_html(counts: dict[str, int]) -> str:
 def _build_live_jobs_panel(
     dashboard_artifacts: DashboardArtifacts,
     export_artifacts: StatusExportArtifacts,
+    application_kpis: ApplicationKpis | None = None,
 ) -> str:
     legend_items = []
     for status, label in STATUS_LABELS.items():
@@ -170,6 +185,45 @@ def _build_live_jobs_panel(
         f"<a href='{html.escape(export_artifacts.latest_csv.name)}'>latest csv</a> · "
         f"<a href='{html.escape(export_artifacts.latest_json.name)}'>latest json</a>"
         "</p>"
+        + _build_kpi_inline_html(application_kpis)
         + "".join(legend_items)
         + "</section>"
+    )
+
+
+def _build_kpi_html(application_kpis: ApplicationKpis | None) -> str:
+    if application_kpis is None:
+        return ""
+    reassess_text = "YES" if application_kpis.reassess_required else "no"
+    return (
+        "<div class='kpi'>"
+        "<strong>Auto-submit KPIs:</strong> "
+        f"shortlisted considered={application_kpis.shortlisted_considered}, "
+        f"attempted={application_kpis.attempted}, "
+        f"applied={application_kpis.applied}, "
+        f"blocked={application_kpis.blocked}, "
+        f"skipped={application_kpis.skipped}, "
+        f"success_rate={application_kpis.success_rate:.2f}%, "
+        f"target_shortlist_ratio={application_kpis.target_shortlist_ratio:.2f}%, "
+        f"attempt_coverage={application_kpis.attempt_coverage_ratio:.2f}%, "
+        f"goal_rating={application_kpis.goal_progress_rating:.2f}/100, "
+        f"reassess_required={reassess_text}"
+        "</div>"
+    )
+
+
+def _build_kpi_inline_html(application_kpis: ApplicationKpis | None) -> str:
+    if application_kpis is None:
+        return ""
+    reassess_text = "YES" if application_kpis.reassess_required else "no"
+    return (
+        "<p style='margin:0 0 10px 0;font-size:13px'>"
+        "<strong>Auto-submit:</strong> "
+        f"attempted {application_kpis.attempted}, "
+        f"applied {application_kpis.applied}, "
+        f"blocked {application_kpis.blocked}, "
+        f"success rate {application_kpis.success_rate:.2f}% · "
+        f"goal rating {application_kpis.goal_progress_rating:.2f}/100 · "
+        f"reassess {reassess_text}"
+        "</p>"
     )

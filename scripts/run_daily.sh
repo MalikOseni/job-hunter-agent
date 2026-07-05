@@ -33,6 +33,7 @@ generate_summary_report() {
   /usr/bin/python3 - "${REVIEW_DIR}" "${PROJECT_ROOT}/logs" "${summary_file}" <<'PY'
 from pathlib import Path
 import csv
+import json
 import re
 import sys
 from collections import Counter
@@ -43,6 +44,7 @@ logs_dir = Path(sys.argv[2])
 summary_path = Path(sys.argv[3])
 live_csv = review_dir / "latest_live_jobs.csv"
 status_csv = review_dir / "latest_application_status.csv"
+status_json = review_dir / "latest_application_status.json"
 
 if not live_csv.exists() or not status_csv.exists():
     missing = [str(p) for p in (live_csv, status_csv) if not p.exists()]
@@ -54,6 +56,29 @@ company_counts = Counter((r.get("company") or "").strip().lower() for r in live_
 source_counts = Counter((r.get("source") or "").strip().lower() for r in live_rows)
 location_counts = Counter((r.get("location") or "").strip() for r in live_rows)
 status_counts = Counter((r.get("status") or "").strip() for r in status_rows)
+application_kpis = {}
+if status_json.exists():
+    try:
+        status_payload = json.loads(status_json.read_text(encoding="utf-8"))
+        if isinstance(status_payload, dict):
+            kpis_obj = status_payload.get("application_kpis", {})
+            if isinstance(kpis_obj, dict):
+                application_kpis = kpis_obj
+    except json.JSONDecodeError:
+        application_kpis = {}
+
+attempted_kpi = int(application_kpis.get("attempted", 0) or 0)
+applied_kpi = int(application_kpis.get("applied", 0) or 0)
+blocked_kpi = int(application_kpis.get("blocked", 0) or 0)
+skipped_kpi = int(application_kpis.get("skipped", 0) or 0)
+considered_kpi = int(application_kpis.get("shortlisted_considered", 0) or 0)
+success_rate_kpi = float(application_kpis.get("success_rate", 0.0) or 0.0)
+auto_submit_enabled = bool(application_kpis.get("auto_submit_enabled", False))
+target_shortlist_roles = int(application_kpis.get("target_shortlist_roles", 0) or 0)
+target_shortlist_ratio = float(application_kpis.get("target_shortlist_ratio", 0.0) or 0.0)
+attempt_coverage_ratio = float(application_kpis.get("attempt_coverage_ratio", 0.0) or 0.0)
+goal_progress_rating = float(application_kpis.get("goal_progress_rating", 0.0) or 0.0)
+reassess_required = bool(application_kpis.get("reassess_required", False))
 
 remote_count = sum(1 for r in live_rows if "remote" in (r.get("tags") or "").lower())
 visa_count = sum(1 for r in live_rows if "visa/relocation" in (r.get("tags") or "").lower())
@@ -111,6 +136,20 @@ lines.append("")
 lines.append("Status distribution")
 for status, count in sorted(status_counts.items()):
     lines.append(f"- {status}: {count}")
+
+lines.append("")
+lines.append("Application automation KPIs")
+lines.append(f"- Auto-submit enabled: {'yes' if auto_submit_enabled else 'no'}")
+lines.append(f"- Shortlisted considered: {considered_kpi}")
+lines.append(f"- Attempts: {attempted_kpi}")
+lines.append(f"- Applied: {applied_kpi}")
+lines.append(f"- Blocked: {blocked_kpi}")
+lines.append(f"- Skipped: {skipped_kpi}")
+lines.append(f"- Success rate: {success_rate_kpi:.2f}%")
+lines.append(f"- Target-aligned shortlist roles: {target_shortlist_roles} ({target_shortlist_ratio:.2f}%)")
+lines.append(f"- Attempt coverage on target-aligned roles: {attempt_coverage_ratio:.2f}%")
+lines.append(f"- Goal progress rating: {goal_progress_rating:.2f}/100")
+lines.append(f"- Reassess required: {'YES' if reassess_required else 'no'}")
 
 lines.append("")
 lines.append(f"NGO/mission-driven roles surfaced: {len(ngo_rows)}")

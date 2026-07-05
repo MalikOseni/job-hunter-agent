@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import sqlite3
+from dataclasses import asdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -60,6 +61,21 @@ class StatusExportArtifacts:
     dated_json: Path
     latest_json: Path
     status_counts: dict[str, int]
+
+@dataclass(frozen=True)
+class ApplicationKpis:
+    auto_submit_enabled: bool
+    shortlisted_considered: int
+    attempted: int
+    applied: int
+    blocked: int
+    skipped: int
+    success_rate: float
+    target_shortlist_roles: int = 0
+    target_shortlist_ratio: float = 0.0
+    attempt_coverage_ratio: float = 0.0
+    goal_progress_rating: float = 0.0
+    reassess_required: bool = True
 
 
 def fetch_status_rows(conn: sqlite3.Connection) -> list[StatusRow]:
@@ -125,6 +141,7 @@ def write_status_exports(
     rows: list[StatusRow],
     review_dir: Path,
     stamp: str,
+    application_kpis: ApplicationKpis | None = None,
 ) -> StatusExportArtifacts:
     review_dir.mkdir(parents=True, exist_ok=True)
     status_counts = summarize_status_counts(rows)
@@ -185,6 +202,7 @@ def write_status_exports(
     json_payload = {
         "generated_for_day": stamp,
         "status_counts": status_counts,
+        "application_kpis": asdict(application_kpis) if application_kpis is not None else {},
         "rows": export_rows,
     }
     for path in (dated_json, latest_json):

@@ -5,6 +5,7 @@ Relocation-first job sourcing and application-tracking pipeline with daily autom
 - Aggregates jobs from multiple sources.
 - Applies relocation and eligibility policy filters.
 - Scores and shortlists jobs.
+- Attempts auto-submit on supported providers and records outcomes.
 - Persists job/application state to sqlite.
 - Generates daily review artifacts:
   - live jobs CSV/HTML
@@ -52,6 +53,16 @@ Runtime directory overrides (used by `scripts/run_daily.sh`):
 - `JOB_HUNTER_NOTIFY_DESKTOP` (default: `1`; set `0` to disable macOS desktop notifications)
 - `JOB_HUNTER_SEND_DAILY_EMAIL` (default: `1`; set `0` to disable daily email sending)
 - `JOB_HUNTER_REPORT_EMAIL` (default: `malik@malikoseni.com`; recipient for daily summary emails)
+- `JOB_HUNTER_AUTO_SUBMIT_ENABLED` (default: `1`; set `0` to keep queue-only mode)
+- `JOB_HUNTER_AUTO_SUBMIT_MAX_PER_RUN` (default: `25`; caps automated submission attempts per run)
+- `JOB_HUNTER_AUTO_SUBMIT_MIN_SCORE` (default: `10`; minimum role score required for auto-submit attempts)
+- `JOB_HUNTER_AUTO_SUBMIT_REQUIRE_RELOCATION_OR_WORK_ANYWHERE` (default: `1`; only attempts roles tagged for relocation/work-anywhere goals)
+- `JOB_HUNTER_APPLICANT_EMAIL` (optional override; defaults to `JOB_HUNTER_LOGIN_EMAIL`)
+- `JOB_HUNTER_APPLICANT_FIRST_NAME` / `JOB_HUNTER_APPLICANT_LAST_NAME` (optional overrides)
+- `JOB_HUNTER_APPLICANT_PHONE` (optional; included when provider supports phone field)
+- `JOB_HUNTER_RESUME_PATH` (optional override for the resume used in auto-submit)
+- `JOB_HUNTER_GREENHOUSE_API_KEYS_JSON` (optional JSON map, e.g. `{\"reddit\":\"<api_key>\"}`)
+- `JOB_HUNTER_GREENHOUSE_API_KEY_<BOARD_TOKEN>` (optional per-board env var, e.g. `JOB_HUNTER_GREENHOUSE_API_KEY_REDDIT`)
 
 CLI flags (module entrypoint):
 - `--min-score`
@@ -89,6 +100,8 @@ Daily email reports:
 - The script emails that summary and attaches:
   - `review/latest_live_jobs.csv`
   - `review/latest_application_status.csv`
+- Daily summary includes application automation KPIs (attempted/applied/blocked/skipped/success-rate).
+- Daily summary includes goal progress KPIs (target-role ratio, coverage, goal rating, reassess flag).
 - Email errors are logged but do not fail the pipeline run.
 
 ## Generated outputs
@@ -131,3 +144,4 @@ Daily email reports:
 ## Notes
 - External job boards may occasionally return 404s; those entries are skipped and logged.
 - Missing login credentials are reported as warnings unless account-driven flows are required.
+- Greenhouse auto-submit requires board-specific Job Board API keys; without provider credentials, roles are recorded as blocked with explicit reason codes.

@@ -33,6 +33,12 @@ class RunIngestionSummary:
     jobs_policy_eligible: int
     jobs_shortlisted: int
     jobs_upserted: int
+    auto_submit_enabled: bool = False
+    auto_submit_shortlisted_considered: int = 0
+    auto_submit_attempted: int = 0
+    auto_submit_applied: int = 0
+    auto_submit_blocked: int = 0
+    auto_submit_skipped: int = 0
 
 
 def canonical_job_key(job: JobRecord) -> str:
