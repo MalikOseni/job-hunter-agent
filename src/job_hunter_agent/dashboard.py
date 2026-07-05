@@ -195,6 +195,9 @@ def _build_kpi_html(application_kpis: ApplicationKpis | None) -> str:
     if application_kpis is None:
         return ""
     reassess_text = "YES" if application_kpis.reassess_required else "no"
+    readiness_text = "yes" if application_kpis.readiness_can_attempt else "no"
+    missing_prereq = "; ".join(application_kpis.missing_prerequisites) or "none"
+    missing_keys = _format_missing_board_keys(application_kpis.missing_greenhouse_board_tokens)
     return (
         "<div class='kpi'>"
         "<strong>Auto-submit KPIs:</strong> "
@@ -207,7 +210,11 @@ def _build_kpi_html(application_kpis: ApplicationKpis | None) -> str:
         f"target_shortlist_ratio={application_kpis.target_shortlist_ratio:.2f}%, "
         f"attempt_coverage={application_kpis.attempt_coverage_ratio:.2f}%, "
         f"goal_rating={application_kpis.goal_progress_rating:.2f}/100, "
-        f"reassess_required={reassess_text}"
+        f"reassess_required={reassess_text}, "
+        f"ready_for_real_attempts={readiness_text}, "
+        f"candidate_greenhouse_roles={application_kpis.candidate_greenhouse_roles}, "
+        f"missing_prerequisites={html.escape(missing_prereq)}, "
+        f"missing_greenhouse_keys={html.escape(missing_keys)}"
         "</div>"
     )
 
@@ -216,6 +223,8 @@ def _build_kpi_inline_html(application_kpis: ApplicationKpis | None) -> str:
     if application_kpis is None:
         return ""
     reassess_text = "YES" if application_kpis.reassess_required else "no"
+    readiness_text = "yes" if application_kpis.readiness_can_attempt else "no"
+    missing_keys = _format_missing_board_keys(application_kpis.missing_greenhouse_board_tokens)
     return (
         "<p style='margin:0 0 10px 0;font-size:13px'>"
         "<strong>Auto-submit:</strong> "
@@ -223,7 +232,15 @@ def _build_kpi_inline_html(application_kpis: ApplicationKpis | None) -> str:
         f"applied {application_kpis.applied}, "
         f"blocked {application_kpis.blocked}, "
         f"success rate {application_kpis.success_rate:.2f}% · "
+        f"ready {readiness_text} · "
+        f"missing keys {html.escape(missing_keys)} · "
         f"goal rating {application_kpis.goal_progress_rating:.2f}/100 · "
         f"reassess {reassess_text}"
         "</p>"
     )
+
+
+def _format_missing_board_keys(missing_keys: dict[str, int]) -> str:
+    if not missing_keys:
+        return "none"
+    return ", ".join(f"{board}:{count}" for board, count in missing_keys.items())

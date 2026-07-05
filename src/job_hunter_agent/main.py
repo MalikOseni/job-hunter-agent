@@ -5,7 +5,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from .auto_submit import AutoSubmitter, build_auto_submit_config, is_goal_aligned_tags
+from .auto_submit import (
+    AutoSubmitter,
+    build_auto_submit_config,
+    build_auto_submit_readiness,
+    is_goal_aligned_tags,
+)
 
 from .config import ConfigError, load_runtime_settings
 from .dashboard import update_live_jobs_html_with_status_section, write_status_dashboard
@@ -118,6 +123,7 @@ def run(
         policy=settings.policy,
         profile=settings.profile,
     )
+    readiness = build_auto_submit_readiness(auto_submitter.config, top)
     print(
         "Salary policy results: "
         f"decisions={len(salary_decisions)}; "
@@ -189,6 +195,10 @@ def run(
         attempt_coverage_ratio=attempt_coverage_ratio,
         goal_progress_rating=goal_progress_rating,
         reassess_required=reassess_required,
+        readiness_can_attempt=readiness.ready_for_real_attempts,
+        candidate_greenhouse_roles=readiness.candidate_greenhouse_roles,
+        missing_prerequisites=readiness.missing_prerequisites,
+        missing_greenhouse_board_tokens=readiness.missing_greenhouse_board_tokens,
     )
     export_artifacts = write_status_exports(
         status_rows,
@@ -223,6 +233,18 @@ def run(
         f"blocked={ingestion_summary.auto_submit_blocked}, "
         f"skipped={ingestion_summary.auto_submit_skipped}, "
         f"success_rate={auto_submit_success_rate:.2f}%"
+    )
+    missing_keys_text = ", ".join(
+        f"{board}:{count}"
+        for board, count in readiness.missing_greenhouse_board_tokens.items()
+    ) or "none"
+    missing_prerequisites_text = "; ".join(readiness.missing_prerequisites) or "none"
+    print(
+        "Auto-submit readiness: "
+        f"ready_for_real_attempts={'yes' if readiness.ready_for_real_attempts else 'no'}, "
+        f"candidate_greenhouse_roles={readiness.candidate_greenhouse_roles}, "
+        f"missing_prerequisites={missing_prerequisites_text}, "
+        f"missing_greenhouse_keys={missing_keys_text}"
     )
     print(
         "Goal progress rating: "

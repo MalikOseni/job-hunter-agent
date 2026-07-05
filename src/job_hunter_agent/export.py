@@ -5,6 +5,7 @@ import json
 import sqlite3
 from dataclasses import asdict
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 
 STATUS_ORDER = (
@@ -76,6 +77,10 @@ class ApplicationKpis:
     attempt_coverage_ratio: float = 0.0
     goal_progress_rating: float = 0.0
     reassess_required: bool = True
+    readiness_can_attempt: bool = False
+    candidate_greenhouse_roles: int = 0
+    missing_prerequisites: tuple[str, ...] = tuple()
+    missing_greenhouse_board_tokens: dict[str, int] = field(default_factory=dict)
 
 
 def fetch_status_rows(conn: sqlite3.Connection) -> list[StatusRow]:

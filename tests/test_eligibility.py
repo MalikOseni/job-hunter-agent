@@ -73,6 +73,31 @@ class EligibilityTests(unittest.TestCase):
         )
         self.assertEqual(evaluation.reason_counts.get("missing_relocation_signal"), 1)
 
+    def test_ineligible_when_hybrid_without_relocation_signal(self) -> None:
+        jobs = [
+            {
+                "score": 10,
+                "source": "linkedin/guest",
+                "company": "Acme",
+                "title": "Identity Engineer",
+                "location": "London, United Kingdom (Hybrid)",
+                "url": "https://example.com/hybrid",
+                "tags": "hybrid, target-country",
+                "skills": "intune",
+                "posted": "2026-07-01",
+            }
+        ]
+        evaluation = evaluate_jobs(
+            jobs,
+            min_score=2,
+            max_age_days=21,
+            relocation_assistance_required=False,
+        )
+        self.assertEqual(
+            evaluation.reason_counts.get("hybrid_missing_relocation_signal"),
+            1,
+        )
+
     def test_eligible_job_has_age_days(self) -> None:
         jobs = [
             {

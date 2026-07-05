@@ -79,6 +79,28 @@ target_shortlist_ratio = float(application_kpis.get("target_shortlist_ratio", 0.
 attempt_coverage_ratio = float(application_kpis.get("attempt_coverage_ratio", 0.0) or 0.0)
 goal_progress_rating = float(application_kpis.get("goal_progress_rating", 0.0) or 0.0)
 reassess_required = bool(application_kpis.get("reassess_required", False))
+readiness_can_attempt = bool(application_kpis.get("readiness_can_attempt", False))
+candidate_greenhouse_roles = int(application_kpis.get("candidate_greenhouse_roles", 0) or 0)
+
+raw_missing_prerequisites = application_kpis.get("missing_prerequisites", [])
+if isinstance(raw_missing_prerequisites, list):
+    missing_prerequisites = [str(item).strip() for item in raw_missing_prerequisites if str(item).strip()]
+else:
+    missing_prerequisites = []
+
+raw_missing_keys = application_kpis.get("missing_greenhouse_board_tokens", {})
+missing_greenhouse_keys = {}
+if isinstance(raw_missing_keys, dict):
+    for raw_board, raw_count in raw_missing_keys.items():
+        board = str(raw_board).strip()
+        if not board:
+            continue
+        try:
+            count = int(raw_count)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            missing_greenhouse_keys[board] = count
 
 remote_count = sum(1 for r in live_rows if "remote" in (r.get("tags") or "").lower())
 visa_count = sum(1 for r in live_rows if "visa/relocation" in (r.get("tags") or "").lower())
@@ -150,6 +172,23 @@ lines.append(f"- Target-aligned shortlist roles: {target_shortlist_roles} ({targ
 lines.append(f"- Attempt coverage on target-aligned roles: {attempt_coverage_ratio:.2f}%")
 lines.append(f"- Goal progress rating: {goal_progress_rating:.2f}/100")
 lines.append(f"- Reassess required: {'YES' if reassess_required else 'no'}")
+lines.append(f"- Ready for real submit attempts: {'yes' if readiness_can_attempt else 'no'}")
+
+lines.append("")
+lines.append("What is currently needed to unlock successful auto-submit")
+if missing_prerequisites:
+    lines.append("- Missing prerequisites:")
+    for requirement in missing_prerequisites:
+        lines.append(f"  - {requirement}")
+else:
+    lines.append("- Missing prerequisites: none")
+if missing_greenhouse_keys:
+    lines.append(f"- Missing Greenhouse API keys across {candidate_greenhouse_roles} candidate roles:")
+    for board, count in sorted(missing_greenhouse_keys.items()):
+        env_name = f"JOB_HUNTER_GREENHOUSE_API_KEY_{board.upper().replace('-', '_')}"
+        lines.append(f"  - {board}: {count} roles (set {env_name})")
+else:
+    lines.append("- Missing Greenhouse API keys: none")
 
 lines.append("")
 lines.append(f"NGO/mission-driven roles surfaced: {len(ngo_rows)}")

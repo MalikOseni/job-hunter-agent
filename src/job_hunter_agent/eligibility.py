@@ -85,6 +85,17 @@ def evaluate_job(
     tags = _parse_tags(normalized.get("tags", ""))
     score = int(normalized.get("score", 0))
 
+    if "hybrid" in tags and "visa/relocation" not in tags:
+        return EligibilityDecision(
+            external_key=external_key,
+            eligible=False,
+            reason_code="hybrid_missing_relocation_signal",
+            reason_detail=(
+                "Hybrid role was excluded because it does not advertise visa sponsorship or relocation support."
+            ),
+            normalized_job=normalized,
+        )
+
     if relocation_assistance_required and not (tags & RELOCATION_COMPATIBLE_TAGS):
         return EligibilityDecision(
             external_key=external_key,

@@ -11,6 +11,7 @@ ORDERED_TAGS = (
     "work-anywhere",
     "emea-remote",
     "remote",
+    "hybrid",
     "target-country",
 )
 

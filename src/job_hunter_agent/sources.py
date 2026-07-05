@@ -1,15 +1,26 @@
 from __future__ import annotations
 import html
 import json
+import re
 import sys
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.request
+from urllib.parse import urlencode
 from typing import Any
+from xml.etree import ElementTree
 
 from .scoring import add_job
 from .types import JobRecord
 
 UA = {"User-Agent": "Mozilla/5.0 (job-hunter/1.0)"}
+LINKEDIN_GUEST_SEARCH_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+LINKEDIN_KEYWORD_LOCATION_PAIRS = (
+    ("identity engineer visa sponsorship", "Remote"),
+    ("microsoft 365 security engineer relocation", "Remote"),
+    ("intune engineer relocation", "Remote"),
+)
 
 # Companies with known ATS boards worth polling directly. Extend freely:
 # ("greenhouse", "boardtoken") | ("lever", "site") | ("ashby", "org")
@@ -129,6 +140,66 @@ def sweep_remoteok(jobs: list[JobRecord]) -> None:
             (job.get("date", "") or "")[:10],
         )
 
+def sweep_weworkremotely(jobs: list[JobRecord]) -> None:
+    print("WeWorkRemotely (niche remote board)...")
+    raw = fetch("https://weworkremotely.com/remote-jobs.rss")
+    if not raw:
+        return
+    try:
+        root = ElementTree.fromstring(raw)
+    except ElementTree.ParseError:
+        return
+    for item in root.findall("./channel/item"):
+        title = _xml_text(item.find("title"))
+        url = _xml_text(item.find("link"))
+        description = html.unescape(_xml_text(item.find("description")))
+        category_blob = " ".join(
+            _xml_text(category) for category in item.findall("category")
+        ).strip()
+        posted = _normalize_posted_date(_xml_text(item.find("pubDate")))
+        company, role_title = _split_company_and_title(title)
+        body = " ".join(piece for piece in (description, category_blob) if piece).strip()
+        add_job(
+            jobs,
+            "weworkremotely",
+            company,
+            role_title,
+            "Remote",
+            url,
+            body,
+            posted,
+        )
+
+
+def sweep_linkedin_guest(jobs: list[JobRecord]) -> None:
+    print("LinkedIn guest search (mobility-filtered)...")
+    for keywords, location in LINKEDIN_KEYWORD_LOCATION_PAIRS:
+        query = urlencode(
+            {
+                "keywords": keywords,
+                "location": location,
+                "f_TPR": "r604800",
+                "position": 1,
+                "pageNum": 0,
+                "start": 0,
+            }
+        )
+        raw = fetch(f"{LINKEDIN_GUEST_SEARCH_URL}?{query}")
+        if not raw:
+            continue
+        for card in _parse_linkedin_cards(raw):
+            add_job(
+                jobs,
+                "linkedin/guest",
+                card["company"],
+                card["title"],
+                card["location"] or location,
+                card["url"],
+                card["body"],
+                card["posted"],
+            )
+        time.sleep(0.4)
+
 
 def sweep_ats(jobs: list[JobRecord]) -> None:
     print("ATS boards (Greenhouse/Lever/Ashby)...")
@@ -187,4 +258,81 @@ def run_all_sweeps(jobs: list[JobRecord]) -> None:
     sweep_arbeitnow(jobs)
     sweep_remotive(jobs)
     sweep_remoteok(jobs)
+    sweep_weworkremotely(jobs)
+    sweep_linkedin_guest(jobs)
     sweep_ats(jobs)
+
+
+def _xml_text(element: ElementTree.Element | None) -> str:
+    if element is None:
+        return ""
+    return (element.text or "").strip()
+
+
+def _split_company_and_title(raw_title: str) -> tuple[str, str]:
+    title = (raw_title or "").strip()
+    for separator in ("—", "–", "-", "|", ":"):
+        if separator in title:
+            left, right = title.split(separator, 1)
+            company = left.strip() or "unknown"
+            role_title = right.strip() or title
+            return company, role_title
+    return "unknown", title
+
+
+def _normalize_posted_date(raw_value: str) -> str:
+    text = (raw_value or "").strip()
+    if not text:
+        return ""
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", text):
+        return text
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", text):
+        return text[:10]
+    if "ago" in text.lower():
+        return datetime.now(timezone.utc).date().isoformat()
+    try:
+        parsed = parsedate_to_datetime(text)
+    except (TypeError, ValueError):
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).date().isoformat()
+
+
+def _parse_linkedin_cards(raw_html: str) -> list[dict[str, str]]:
+    cards: list[dict[str, str]] = []
+    for match in re.finditer(r"<li[\s\S]*?</li>", raw_html):
+        block = match.group(0)
+        url = _extract_first(block, r'href="([^"]+)"')
+        title = _strip_html(_extract_first(block, r'base-search-card__title[^>]*>([\s\S]*?)</h3>'))
+        company = _strip_html(_extract_first(block, r'base-search-card__subtitle[^>]*>([\s\S]*?)</h4>'))
+        location = _strip_html(_extract_first(block, r'job-search-card__location[^>]*>([\s\S]*?)</span>'))
+        datetime_attr = _extract_first(block, r'<time[^>]*datetime="([^"]+)"')
+        posted_text = datetime_attr or _strip_html(_extract_first(block, r'<time[^>]*>([\s\S]*?)</time>'))
+        posted = _normalize_posted_date(posted_text)
+        body = " ".join(piece for piece in (title, company, location) if piece).strip()
+        if not url or not title:
+            continue
+        cards.append(
+            {
+                "url": html.unescape(url).strip(),
+                "title": title,
+                "company": company or "unknown",
+                "location": location,
+                "body": body,
+                "posted": posted,
+            }
+        )
+    return cards
+
+
+def _extract_first(text: str, pattern: str) -> str:
+    match = re.search(pattern, text, flags=re.I)
+    if not match:
+        return ""
+    return match.group(1).strip()
+
+
+def _strip_html(raw_value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", raw_value or "")
+    return " ".join(html.unescape(text).split())

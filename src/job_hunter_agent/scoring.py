@@ -62,6 +62,8 @@ TARGET_COUNTRIES = [
     "denmark", "norway", "switzerland", "belgium", "luxembourg", "amsterdam",
     "london", "berlin", "toronto", "vancouver", "doha", "abu dhabi", "emea",
 ]
+LINKEDIN_SOURCE_PREFIX = "linkedin"
+NICHE_SOURCE_PREFIXES = ("weworkremotely", "remoteok", "remotive", "arbeitnow")
 
 
 def score_text(title: str, body: str) -> tuple[int, list[str]]:
@@ -79,6 +81,8 @@ def score_text(title: str, body: str) -> tuple[int, list[str]]:
 def mobility(title: str, body: str, location: str) -> list[str]:
     text = f"{title}\n{body}\n{location}".lower()
     tags: list[str] = []
+    if "hybrid" in text:
+        tags.append("hybrid")
     if any(term in text for term in VISA_TERMS):
         tags.append("visa/relocation")
     has_work_anywhere = any(term in text for term in ANYWHERE_TERMS)
@@ -117,6 +121,8 @@ def add_job(
     if not title_is_match and score < 5:
         return
     tags = mobility(title, body, location)
+    if not _passes_source_filters(source=source, tags=tags):
+        return
     # Keep only roles with a mobility angle OR a very strong skill match
     # in a target country.
     if not tags and score < 6:
@@ -134,3 +140,32 @@ def add_job(
             "posted": posted or "",
         }
     )
+
+
+def _passes_source_filters(*, source: str, tags: list[str]) -> bool:
+    source_value = (source or "").strip().lower()
+    tag_set = {tag.strip().lower() for tag in tags if tag.strip()}
+    is_hybrid_without_relocation = (
+        "hybrid" in tag_set and "visa/relocation" not in tag_set
+    )
+
+    if source_value.startswith(LINKEDIN_SOURCE_PREFIX):
+        if is_hybrid_without_relocation:
+            return False
+        has_linkedin_mobility = (
+            "visa/relocation" in tag_set
+            or "work-anywhere" in tag_set
+            or "emea-remote" in tag_set
+            or ("remote" in tag_set and "target-country" in tag_set)
+        )
+        return has_linkedin_mobility
+
+    if any(source_value.startswith(prefix) for prefix in NICHE_SOURCE_PREFIXES):
+        if is_hybrid_without_relocation:
+            return False
+        has_niche_mobility = bool(
+            tag_set & {"visa/relocation", "work-anywhere", "emea-remote", "remote"}
+        )
+        return has_niche_mobility
+
+    return True

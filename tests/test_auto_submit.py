@@ -3,12 +3,15 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+import job_hunter_agent.auto_submit as auto_submit_module
 
 from job_hunter_agent.auto_submit import (
     AutoSubmitConfig,
     AutoSubmitter,
+    GreenhouseHostedContext,
     GreenhouseSubmissionRequest,
     GreenhouseSubmissionResponse,
+    build_auto_submit_readiness,
 )
 
 
@@ -70,6 +73,120 @@ class AutoSubmitterTests(unittest.TestCase):
         self.assertEqual(0, summary.attempted)
         self.assertEqual(0, summary.blocked)
         self.assertEqual(1, summary.skipped)
+
+    def test_greenhouse_without_board_key_uses_hosted_fallback_when_enabled(self) -> None:
+        original_load_context = auto_submit_module._load_greenhouse_hosted_context
+        original_upload = auto_submit_module._upload_greenhouse_files
+        original_submit = auto_submit_module._submit_greenhouse_hosted_application
+        auto_submit_module._load_greenhouse_hosted_context = lambda _: GreenhouseHostedContext(
+            submit_path="https://boards.greenhouse.io/example/jobs/12345",
+            fingerprint="fingerprint-123",
+            jben_url="https://boards.greenhouse.io",
+            cookie_header="",
+            job_post={
+                "questions": [
+                    {
+                        "required": False,
+                        "label": "Extra Question",
+                        "fields": [
+                            {
+                                "name": "question_12345",
+                                "type": "input_text",
+                                "values": [],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+        auto_submit_module._upload_greenhouse_files = lambda **_: {
+            "resume": {
+                "url": "https://uploads.example/resume.pdf",
+                "name": "resume.pdf",
+            }
+        }
+        auto_submit_module._submit_greenhouse_hosted_application = lambda **_: "hosted-app-123"
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf") as resume_file:
+                submitter = AutoSubmitter(
+                    AutoSubmitConfig(
+                        enabled=True,
+                        max_per_run=5,
+                        applicant_first_name="Malik",
+                        applicant_last_name="Oseni",
+                        applicant_email="malik@example.com",
+                        applicant_phone="",
+                        resume_path=Path(resume_file.name),
+                        greenhouse_api_keys={},
+                        greenhouse_hosted_fallback_enabled=True,
+                        greenhouse_question_answers={"question_12345": "ok"},
+                    )
+                )
+                outcome = submitter.maybe_submit(
+                    job=_sample_job(),
+                    source="greenhouse/reddit",
+                    current_stage="pending_review",
+                )
+        finally:
+            auto_submit_module._load_greenhouse_hosted_context = original_load_context
+            auto_submit_module._upload_greenhouse_files = original_upload
+            auto_submit_module._submit_greenhouse_hosted_application = original_submit
+
+        self.assertTrue(outcome.attempted)
+        self.assertTrue(outcome.applied)
+        self.assertEqual("auto_submit_greenhouse_hosted_submitted", outcome.reason_code)
+        self.assertEqual("hosted-app-123", outcome.external_application_id)
+
+    def test_greenhouse_hosted_fallback_skips_when_required_answers_missing(self) -> None:
+        original_load_context = auto_submit_module._load_greenhouse_hosted_context
+        auto_submit_module._load_greenhouse_hosted_context = lambda _: GreenhouseHostedContext(
+            submit_path="https://boards.greenhouse.io/example/jobs/12345",
+            fingerprint="fingerprint-123",
+            jben_url="https://boards.greenhouse.io",
+            cookie_header="",
+            job_post={
+                "questions": [
+                    {
+                        "required": True,
+                        "label": "Work Authorization",
+                        "fields": [
+                            {
+                                "name": "question_99999",
+                                "type": "input_text",
+                                "values": [],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf") as resume_file:
+                submitter = AutoSubmitter(
+                    AutoSubmitConfig(
+                        enabled=True,
+                        max_per_run=5,
+                        applicant_first_name="Malik",
+                        applicant_last_name="Oseni",
+                        applicant_email="malik@example.com",
+                        applicant_phone="",
+                        resume_path=Path(resume_file.name),
+                        greenhouse_api_keys={},
+                        greenhouse_hosted_fallback_enabled=True,
+                        greenhouse_question_answers={},
+                    )
+                )
+                outcome = submitter.maybe_submit(
+                    job=_sample_job(),
+                    source="greenhouse/reddit",
+                    current_stage="pending_review",
+                )
+        finally:
+            auto_submit_module._load_greenhouse_hosted_context = original_load_context
+
+        self.assertFalse(outcome.attempted)
+        self.assertTrue(outcome.skipped)
+        self.assertEqual("auto_submit_missing_greenhouse_required_answers", outcome.reason_code)
 
     def test_greenhouse_without_board_key_is_skipped(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".pdf") as resume_file:
@@ -264,9 +381,46 @@ class AutoSubmitterTests(unittest.TestCase):
         self.assertTrue(outcome.skipped)
         self.assertEqual("auto_submit_below_quality_threshold", outcome.reason_code)
 
+    def test_readiness_reports_missing_prerequisites_and_board_keys(self) -> None:
+        readiness = build_auto_submit_readiness(
+            AutoSubmitConfig(
+                enabled=True,
+                max_per_run=5,
+                applicant_first_name="",
+                applicant_last_name="",
+                applicant_email="",
+                applicant_phone="",
+                resume_path=Path("/tmp/non-existent-resume.pdf"),
+                greenhouse_api_keys={},
+                min_score_required=10,
+                require_goal_alignment=True,
+            ),
+            [
+                _sample_job(),
+                {
+                    "source": "greenhouse/okta",
+                    "url": "https://job-boards.greenhouse.io/okta/jobs/12345",
+                    "tags": "work-anywhere",
+                    "score": 12,
+                },
+                {
+                    "source": "greenhouse/reddit",
+                    "url": "https://job-boards.greenhouse.io/reddit/jobs/99999",
+                    "tags": "remote",
+                    "score": 12,
+                },
+            ],
+        )
+
+        self.assertFalse(readiness.ready_for_real_attempts)
+        self.assertGreaterEqual(len(readiness.missing_prerequisites), 3)
+        self.assertEqual(2, readiness.candidate_greenhouse_roles)
+        self.assertEqual({"okta": 1, "reddit": 1}, readiness.missing_greenhouse_board_tokens)
+
 
 def _sample_job() -> dict[str, object]:
     return {
+        "source": "greenhouse/reddit",
         "url": "https://job-boards.greenhouse.io/reddit/jobs/8044767",
         "location": "Remote - United States",
         "tags": "work-anywhere",

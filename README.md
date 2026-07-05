@@ -3,6 +3,7 @@ Relocation-first job sourcing and application-tracking pipeline with daily autom
 
 ## What this project does
 - Aggregates jobs from multiple sources.
+  - Includes ATS boards plus remote/niche feeds and LinkedIn guest listings.
 - Applies relocation and eligibility policy filters.
 - Scores and shortlists jobs.
 - Attempts auto-submit on supported providers and records outcomes.
@@ -60,9 +61,37 @@ Runtime directory overrides (used by `scripts/run_daily.sh`):
 - `JOB_HUNTER_APPLICANT_EMAIL` (optional override; defaults to `JOB_HUNTER_LOGIN_EMAIL`)
 - `JOB_HUNTER_APPLICANT_FIRST_NAME` / `JOB_HUNTER_APPLICANT_LAST_NAME` (optional overrides)
 - `JOB_HUNTER_APPLICANT_PHONE` (optional; included when provider supports phone field)
+- `JOB_HUNTER_APPLICANT_LOCATION` (optional override for hosted-form location fields)
 - `JOB_HUNTER_RESUME_PATH` (optional override for the resume used in auto-submit)
 - `JOB_HUNTER_GREENHOUSE_API_KEYS_JSON` (optional JSON map, e.g. `{\"reddit\":\"<api_key>\"}`)
 - `JOB_HUNTER_GREENHOUSE_API_KEY_<BOARD_TOKEN>` (optional per-board env var, e.g. `JOB_HUNTER_GREENHOUSE_API_KEY_REDDIT`)
+- `JOB_HUNTER_GREENHOUSE_HOSTED_FALLBACK_ENABLED` (default: `1`; allows hosted Greenhouse form submissions when API key is unavailable)
+- `JOB_HUNTER_GREENHOUSE_QUESTION_ANSWERS_JSON` (optional JSON map for hosted required fields, e.g. `{\"question_12345\":\"Yes\"}`)
+
+Hosted fallback answer format notes:
+- Use Greenhouse field names as keys (for example: `question_12345`, `resume`, `cover_letter`).
+- Values can be plain strings, option labels/values, arrays (for multi-select), or file paths for upload fields.
+- If a required hosted question is missing from this JSON, the role is skipped with an explicit missing-answer reason in status output.
+
+Sourcing filter behavior notes:
+- LinkedIn guest and niche-source roles are now filtered for relocation/work-anywhere viability.
+- Hybrid roles are only kept when relocation/visa support is detected.
+
+### Inputs you must provide to get the first successful auto-submit
+- Applicant identity:
+  - `JOB_HUNTER_APPLICANT_EMAIL` (or `JOB_HUNTER_LOGIN_EMAIL`)
+  - optional overrides: `JOB_HUNTER_APPLICANT_FIRST_NAME`, `JOB_HUNTER_APPLICANT_LAST_NAME`
+- Resume path:
+  - `JOB_HUNTER_RESUME_PATH` (or `config/profile.yaml` `candidate.resume_path`) must point to an existing file
+- Provider credentials:
+  - Greenhouse roles require board-specific keys:
+    - `JOB_HUNTER_GREENHOUSE_API_KEY_<BOARD_TOKEN>` for each board token
+    - or `JOB_HUNTER_GREENHOUSE_API_KEYS_JSON` with all tokens
+  - If board keys are not available, hosted fallback can still submit for compatible boards when:
+    - `JOB_HUNTER_GREENHOUSE_HOSTED_FALLBACK_ENABLED=1`
+    - required hosted questions are supplied via `JOB_HUNTER_GREENHOUSE_QUESTION_ANSWERS_JSON`
+- Keep `JOB_HUNTER_AUTO_SUBMIT_ENABLED=1`
+- Run `make run-daily`; the summary now includes a “What is currently needed to unlock successful auto-submit” block with exact missing requirements and board tokens.
 
 CLI flags (module entrypoint):
 - `--min-score`
@@ -144,4 +173,4 @@ Daily email reports:
 ## Notes
 - External job boards may occasionally return 404s; those entries are skipped and logged.
 - Missing login credentials are reported as warnings unless account-driven flows are required.
-- Greenhouse auto-submit requires board-specific Job Board API keys; without provider credentials, roles are recorded as blocked with explicit reason codes.
+- Greenhouse auto-submit requires board-specific Job Board API keys; without prerequisites/keys, roles remain skipped/requeued and readiness diagnostics list exactly what to provide.
