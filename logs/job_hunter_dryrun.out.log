@@ -1,0 +1,34 @@
+Policy config loaded: candidate=Malik Oseni; min_score=2; max_age_days=21; salary=top_of_range_if_provided (fallback=market_rate_estimate, currency=GBP); default_notice_weeks=4
+Credentials not set (missing: JOB_HUNTER_LOGIN_EMAIL, JOB_HUNTER_LOGIN_PASSWORD).
+Arbeitnow (relocation board)...
+Remotive (remote roles)...
+RemoteOK (remote roles)...
+WeWorkRemotely (niche remote board)...
+LinkedIn guest search (mobility-filtered)...
+ATS boards (Greenhouse/Lever/Ashby)...
+Eligibility results: eligible=66, ineligible=102; reasons=eligible:66, hybrid_missing_relocation_signal:72, missing_posted_date:12, missing_relocation_signal:8, posting_too_old:10
+
+66 unique matches -> latest_live_jobs.csv, latest_live_jobs.html, live_jobs_log.csv
+Salary policy results: decisions=66; reasons=market_rate_estimate_stub:66
+Status dashboard updated: latest_application_status.html, latest_application_status.csv, latest_application_status.json; live_jobs_panel=yes
+Auto-submit results: enabled=yes, shortlisted_considered=66, attempted=0, applied=0, blocked=0, skipped=66, success_rate=0.00%
+Auto-submit readiness: ready_for_real_attempts=no, candidate_greenhouse_roles=7, missing_prerequisites=Set JOB_HUNTER_APPLICANT_EMAIL (or JOB_HUNTER_LOGIN_EMAIL) for application identity., missing_greenhouse_keys=dropbox:1, figma:1, gitlab:1, mozilla:1, okta:1, reddit:1, stripe:1
+Goal progress rating: target_shortlist_roles=29, target_shortlist_ratio=43.94%, attempt_coverage=0.00%, rating=8.79/100, reassess_required=yes
+Queue DB updated: run_id=run-20260705T125633-d41c77ad, jobs_seen=286, policy_eligible=66, shortlisted=66, upserted=286
+  [17] Senior Site Reliability Engineer, Workforce Identity — coinbase (Remote - USA) [remote]
+  [16] Senior Backend Engineer, IAM — reddit (Remote - United States) [work-anywhere]
+  [16] Senior Manager, End User Services — gitlab (Remote, North America) [remote]
+  [13] Staff Software Engineer, Identity & Access Management — reddit (Remote - United States) [remote]
+  [13] Senior Solutions Engineer (DACH), Firefox Enterprise — mozilla (Remote) [remote]
+  [13] Senior Solutions Engineer (DACH), Firefox Enterprise — mozilla (Remote Germany) [remote, target-country]
+  [13] Staff Solutions Engineer (France), Firefox Enterprise — mozilla (Remote France) [remote]
+  [13] Staff Solutions Engineer (France), Firefox Enterprise — mozilla (Remote) [remote]
+  [12] Senior Software Engineer (RoR/Go), SSCS: Authentication — gitlab (Remote, Canada) [remote, target-country]
+  [12] Principal Software Engineer — okta (Toronto, Ontario, Canada) [work-anywhere, target-country]
+  [12] Senior Solutions Engineer (North East) — okta (Connecticut; Massachusetts; New York, New York) [remote]
+  [11] Senior Client Platform Engineer, Windows — dropbox (Remote - Canada: Select locations) [remote, target-country]
+  [11] Senior Client Platform Engineer, Windows — dropbox (Remote - US: Select locations) [remote]
+  [11] Senior Identity Specialist (Field CTO) — okta (Chicago, Illinois; Georgia; San Francisco, California) [remote]
+  [11] Senior Solutions Engineer, Strategic (Chicago) — okta (Chicago, Illinois) [remote]
+Daily email report skipped (JOB_HUNTER_SEND_DAILY_EMAIL=0).
+Daily email report sent to malik@malikoseni.com with attachments: latest_live_jobs.csv, latest_application_status.csv.
