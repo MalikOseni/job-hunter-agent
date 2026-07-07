@@ -1,0 +1,8 @@
+# Job Hunter daily cron template.
+# 1) Replace PROJECT_ROOT with your local clone path.
+# 2) Install with: crontab ops/job_hunter.cron
+SHELL=/bin/zsh
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+PROJECT_ROOT=/Users/<your-user>/job-hunter-agent
+
+0 9 * * * ${SHELL} ${PROJECT_ROOT}/scripts/run_daily.sh >> ${PROJECT_ROOT}/logs/job_hunter_cron.out.log 2>> ${PROJECT_ROOT}/logs/job_hunter_cron.err.log
