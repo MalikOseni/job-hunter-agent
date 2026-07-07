@@ -116,6 +116,15 @@ CLI flags (module entrypoint):
 - `PYTHONPATH="$PWD/src" /usr/bin/python3 -m job_hunter_agent.main --out-dir "$PWD/outputs" --review-dir "$PWD/review" --db-path "$PWD/data/job_hunter.db" --config-dir "$PWD/config"`
 
 ## Daily automation (cron)
+Install cron automatically on a new environment:
+- Preview the exact line that would be installed:
+  - `scripts/install_cron.sh --dry-run`
+- Install/update the cron entry for this clone path (idempotent):
+  - `scripts/install_cron.sh`
+- Override the schedule when needed:
+  - `JOB_HUNTER_CRON_SCHEDULE="30 8 * * *" scripts/install_cron.sh`
+- Verify installation:
+  - `crontab -l | grep run_daily.sh`
 Example daily cron entry (09:00 local time):
 - `0 9 * * * /bin/zsh /Users/malikoseni/job-hunter-agent/scripts/run_daily.sh >> /Users/malikoseni/job-hunter-agent/logs/job_hunter_cron.out.log 2>> /Users/malikoseni/job-hunter-agent/logs/job_hunter_cron.err.log`
 
